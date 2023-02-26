@@ -36,7 +36,7 @@ def validate_arguments() -> str:
     )
 
     parser.add_argument(
-        "-v", "--version", action="version", version="%(prog)s 0.2.0"
+        "-v", "--version", action="version", version="%(prog)s 0.2.1"
     )
     parser.add_argument(
         "url",
