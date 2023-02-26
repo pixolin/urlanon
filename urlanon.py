@@ -5,61 +5,38 @@ License: MIT
 (c) Bego Mario Garde <pixolin@pixolin.de>
 """
 import argparse
-import re
 import sys
+from urllib.parse import urlparse, urlunparse
 
 import pyperclip
 
 
 def main():
     url: str = validate_arguments()
-    anonymized: str = anonymize_url(url=url)
-    print(anonymized)
-    pyperclip.copy(anonymized)
-
-
-def anonymize_url(url) -> str:
-    """regex for url-parts, extract domain name, anonymize, reconstruct
-
-    Args:
-        url (str): URL to anonymize
-
-    Returns:
-        str: anonymized URL
-    """
-    pattern: object = re.compile(r"(https?://)(www\.)?(.+\.)([a-z]{2,}\/?)")
-    match: object = pattern.search(url)
-    if match is not None:
-        schema = match.group(1)
-        www = match.group(2)
-        domain = match.group(3)
-        tld = match.group(4)
-    else:
-        print("Couldn't convert string. Not an URL?")
-        sys.exit(1)
-
-    if not www:
-        www = ""
-
-    if len(domain) > 7:
-        anonymized_domain = domain[:3] + "..." + domain[-4:]
-    else:
-        anonymized_domain = domain[0] + "***" + domain[-2:]
-
-    new_url = schema + www + anonymized_domain + tld
-    return new_url
+    # parse url
+    parsed: list = parse_url(url)
+    # pick domain from parsed address and anonymize
+    netloc = parsed[1]
+    anonymized_domain = anonymize(netloc)
+    rendered = unparse_render_url(parsed, anonymized_domain)
+    print(f"Copied: {rendered}")
+    pyperclip.copy(rendered)
 
 
 def validate_arguments() -> str:
-    """Validate script arguments"""
+    """Ensure URL was provided
+
+    Returns:
+        str: URL
+    """
     parser: object = argparse.ArgumentParser(
         prog="urlanon",
         description="Anonymize URL",
         epilog="(c) 2023 Bego Mario Garde <pixolin@pixolin.de>",
     )
-    # parser.add_argument("plugin")
+
     parser.add_argument(
-        "-v", "--version", action="version", version="%(prog)s 0.1.0"
+        "-v", "--version", action="version", version="%(prog)s 0.2.0"
     )
     parser.add_argument(
         "url",
@@ -70,8 +47,72 @@ def validate_arguments() -> str:
     )
     args = parser.parse_args()
 
-    # return the name of the desired plugin
-    return args.url[0].lower()
+    url: str = args.url[0].lower()
+
+    # URL must begin with http:// or https://
+    allowed_scheme = ("http://", "https://")
+    if not url.startswith(allowed_scheme):
+        print("An error occured.")
+        print(f'Is "{url}" a proper URL?')
+        sys.exit(1)
+    return url
+
+
+def parse_url(url) -> list:
+    """Parse URL into list
+
+    Args:
+        url (str): URL to parse
+
+    Returns:
+        list: URL, splitted into parts
+    """
+
+    parsed = urlparse(url)
+
+    address = []
+    address.append(parsed.scheme)
+    address.append(parsed.netloc)
+    address.append(parsed.path)
+    address.append(parsed.params)
+    address.append(parsed.query)
+    address.append(parsed.fragment)
+    return address
+
+
+def anonymize(fulldomain):
+    """Extract domain name and replace middle part with dots
+
+    Args:
+        fulldomain (str): sub-, second-level and top-level-domain
+
+    Returns:
+        str: netlocator with anonymized domain
+    """
+    domain_parts = fulldomain.split(".")
+    sld = domain_parts[-2]
+    if len(sld) <= 6:
+        sld = sld[0] + "..." + sld[-1]
+    else:
+        sld = sld[:3] + "..." + sld[-3:]
+    domain_parts[-2] = sld
+    fulldomain = ".".join(domain_parts)
+    return fulldomain
+
+
+def unparse_render_url(address, domain):
+    """Replace domain and render as complete URL
+
+    Args:
+        address (list): parts of URL as list
+        domain (str): anonymized domain
+
+    Returns:
+        str: rendered URL
+    """
+    address[1] = domain
+    output = urlunparse(address)
+    return output
 
 
 if __name__ == "__main__":
